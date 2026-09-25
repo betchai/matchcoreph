@@ -1,0 +1,1 @@
+export const API_BASE = ''; // same-origin; Vite dev server proxies /api to the backend

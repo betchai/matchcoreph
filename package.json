@@ -1,0 +1,24 @@
+{
+  "name": "ppsa-match-scorer",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @blinkscore/core && npm run build -w @blinkscore/server",
+    "build:core": "npm run build -w @blinkscore/core",
+    "dev:server": "npm run dev -w @blinkscore/server",
+    "dev:web": "npm run dev -w @blinkscore/web",
+    "test": "npm run test -w @blinkscore/core && npm run test -w @blinkscore/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "seed": "npm run seed -w @blinkscore/server",
+    "lan": "node scripts/lan.mjs",
+    "matchday": "node scripts/matchday.mjs",
+    "start": "npm run start -w @blinkscore/server"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
