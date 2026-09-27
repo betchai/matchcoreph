@@ -1,0 +1,24 @@
+# Render Blueprint for matchcoreph
+# See https://render.com/docs/blueprint-spec for supported fields.
+services:
+  - type: web
+    name: matchcoreph
+    runtime: docker
+    repo: https://github.com/betchai/matchcoreph
+    region: singapore
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: '4000'
+    # The app stores data in a local SQLite file at /app/data (baked snapshot
+    # of data/ppsa.db is copied in on first boot). On the FREE plan the
+    # instance is recycled on idle/redeploy, so changes to matches/
+    # registrations will reset to the committed snapshot.
+    # To persist the DB between restarts, use a PAID plan and uncomment:
+    # disk:
+    #   name: matchcoreph-data
+    #   mountPath: /app/data
+    #   sizeGB: 1
