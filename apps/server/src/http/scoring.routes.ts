@@ -31,8 +31,10 @@ import {
 import { listChronographSessions, recordChronograph } from '../services/chronograph.js';
 import { matchResultsCsv, matchScorecardsCsv, stageScorecardsHtml, standingsHtml, certificatesHtml } from '../services/reports.js';
 import { body, orgScope, param, queryStr, requireAnyPermission } from './helpers.js';
+import { assertScorekeeperCanScore, assignedStageIds, isStageRestrictedScorekeeper } from '../services/assignments.js';
 import { getRegistration, resetRegistrationPin } from '../services/registrations.js';
 import { getStage } from '../services/stages.js';
+import { forbidden } from '../services/utils.js';
 import {
   chronographSchema,
   disputeOpenSchema,
@@ -84,25 +86,38 @@ export function scoringRoutes(app: FastifyInstance): void {
   // ── Score entry & workflow ─────────────────────────────────────────────────
 
   app.get('/api/orgs/:orgId/matches/:matchId/scores', async (req) => {
-    const { orgId } = orgScope(req, param(req, 'orgId'), 'score.view');
+    const { ctx, orgId } = orgScope(req, param(req, 'orgId'), 'score.view');
     const m = loadMatch(req, orgId, param(req, 'matchId'));
+    let stageId = queryStr(req, 'stageId');
+    if (isStageRestrictedScorekeeper(ctx, orgId)) {
+      const mine = assignedStageIds(req.db, ctx.user.id, m.id);
+      if (!stageId) {
+        if (mine.length === 0) throw forbidden('STAGE_NOT_ASSIGNED', 'You are not assigned to any stage for this match.');
+        stageId = mine[0];
+      } else if (!mine.includes(stageId)) {
+        throw forbidden('STAGE_NOT_ASSIGNED', 'You may only score stages you are assigned to.');
+      }
+    }
     return listScores(req.db, m, {
-      stageId: queryStr(req, 'stageId'),
+      stageId,
       registrationId: queryStr(req, 'registrationId'),
       status: queryStr(req, 'status'),
     });
   });
 
   app.get('/api/orgs/:orgId/matches/:matchId/scores/:scoreId', async (req) => {
-    const { orgId } = orgScope(req, param(req, 'orgId'), 'score.view');
+    const { ctx, orgId } = orgScope(req, param(req, 'orgId'), 'score.view');
     const m = loadMatch(req, orgId, param(req, 'matchId'));
-    return getScore(req.db, m, param(req, 'scoreId'));
+    const score = getScore(req.db, m, param(req, 'scoreId'));
+    assertScorekeeperCanScore(req.db, ctx, m, score.stageId);
+    return score;
   });
 
   app.post('/api/orgs/:orgId/matches/:matchId/scores', async (req) => {
     const { ctx, orgId } = orgScope(req, param(req, 'orgId'), 'score.enter');
     const m = loadMatch(req, orgId, param(req, 'matchId'));
     const input = scoreEntrySchema.parse(body(req));
+    assertScorekeeperCanScore(req.db, ctx, m, input.stageId);
     const out = enterScore(req.db, m, input, { userId: ctx.user.id, username: ctx.user.username });
     return { scoreId: out.score.id, status: out.score.status, hitFactor: out.hitFactor, finalTimeSeconds: out.finalTimeSeconds, valid: out.valid, configErrors: out.configErrors, warnings: out.warnings };
   });
@@ -111,14 +126,16 @@ export function scoringRoutes(app: FastifyInstance): void {
     const { ctx, orgId } = orgScope(req, param(req, 'orgId'), 'score.submit');
     const m = loadMatch(req, orgId, param(req, 'matchId'));
     const input = scoreSubmitSchema.parse(body(req));
+    assertScorekeeperCanScore(req.db, ctx, m, input.stageId);
     const out = enterScore(req.db, m, { ...input, status: 'SUBMITTED' }, { userId: ctx.user.id, username: ctx.user.username });
     return { scoreId: out.score.id, status: out.score.status, hitFactor: out.hitFactor, finalTimeSeconds: out.finalTimeSeconds, valid: out.valid, warnings: out.warnings };
   });
 
   app.post('/api/orgs/:orgId/matches/:matchId/scores/preview', async (req) => {
-    const { orgId } = orgScope(req, param(req, 'orgId'), 'score.submit');
+    const { ctx, orgId } = orgScope(req, param(req, 'orgId'), 'score.submit');
     const m = loadMatch(req, orgId, param(req, 'matchId'));
     const input = previewScoreSchema.parse(body(req));
+    assertScorekeeperCanScore(req.db, ctx, m, input.stageId);
     const stage = getStage(req.db, m, input.stageId);
     const registration = getRegistration(req.db, m, input.registrationId);
     const out = computeStageScoreForRegistration(req.db, m, stage, registration, {
@@ -159,6 +176,7 @@ export function scoringRoutes(app: FastifyInstance): void {
     const { ctx, orgId } = orgScope(req, param(req, 'orgId'), 'score.enter');
     const m = loadMatch(req, orgId, param(req, 'matchId'));
     const input = syncBatchSchema.parse(body(req));
+    for (const s of input.scores) assertScorekeeperCanScore(req.db, ctx, m, s.stageId);
     const entries: EnterScoreInput[] = input.scores.map((s) => ({
       stageId: s.stageId,
       registrationId: s.registrationId,

@@ -55,7 +55,7 @@ export async function seedUniverse(): Promise<TestUniverse> {
   const cats = db.prepare('SELECT id, name FROM categories WHERE ruleset_id = ?').all(ruleset.id) as { id: string; name: string }[];
   const prod = divisions.find((d) => d.name === 'Production')!.id;
   const standard = divisions.find((d) => d.name === 'Standard')!.id;
-  const overall = cats.find((c) => c.name === 'Overall')!.id;
+  const overall = cats.find((c) => c.name === 'Unclassified')!.id;
   void standard;
 
   const match = createMatch(db, org.id, { name: 'Test Match', matchType: 'CLUB_SHOOT', startDate: '2026-05-01', venue: 'Range', matchLevel: 1, sanctioningStatus: 'CLUB' }, actor);

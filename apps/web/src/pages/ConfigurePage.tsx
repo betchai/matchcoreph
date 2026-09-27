@@ -16,6 +16,9 @@ type MatchView = {
   matchLevel: number | null;
   sanctioningStatus: string | null;
   status: string;
+  registrationFee: number;
+  registrationsPaid: number;
+  feesCollected: number;
   disciplineCodes: string[];
   divisions: { id: string; code: string; name: string }[];
   categories: { id: string; code: string; name: string }[];
@@ -31,7 +34,7 @@ type Division = { id: string; code: string; name: string; discipline: string; ma
 type Category = { id: string; code: string; name: string };
 type SquadRow = { id: string; name: string; memberCount: number; stageNumber: number | null };
 type StageRow = { id: string; number: number; name: string };
-type RegistrationRow = { id: string; shooterId: string; firstName: string; lastName: string; divisionId: string | null; divisionName: string | null; categoryId: string | null; declaredPowerFactor: string; squadId: string | null; squadName: string | null; status: string; hasScorePin?: boolean };
+type RegistrationRow = { id: string; shooterId: string; firstName: string; lastName: string; divisionId: string | null; divisionName: string | null; categoryId: string | null; declaredPowerFactor: string; squadId: string | null; squadName: string | null; status: string; hasScorePin?: boolean; paid: boolean };
 type ShooterRow = { id: string; shooterNumber: string; firstName: string; lastName: string; nickname: string | null; homeClub: string | null };
 
 const DISCIPLINE_LABELS: Record<string, string> = {
@@ -62,7 +65,7 @@ export default function ConfigurePage() {
   const [notice, setNotice] = useState('');
 
   const canEdit = useOrgPerm(orgId, 'match.edit');
-  const canRegister = useOrgPerm(orgId, 'registration.manage');
+  const canRegister = useOrgPerm(orgId, 'competitor.manage');
 
   const reloadView = () => {
     setError('');
@@ -215,6 +218,7 @@ function BasicForm({ view, orgId, matchId, canEdit, onSaved, setError, setNotice
   const [startDate, setStartDate] = useState(view.startDate?.slice(0, 10) ?? '');
   const [startTime, setStartTime] = useState(view.startTime ?? '');
   const [venue, setVenue] = useState(view.venue ?? '');
+  const [registrationFee, setRegistrationFee] = useState(String(view.registrationFee ?? 0));
   const [matchLevel, setMatchLevel] = useState(String(view.matchLevel ?? 1));
   const [sanctioningStatus, setSanctioningStatus] = useState(view.sanctioningStatus ?? 'CLUB');
   const [saving, setSaving] = useState(false);
@@ -231,6 +235,7 @@ function BasicForm({ view, orgId, matchId, canEdit, onSaved, setError, setNotice
           startDate: startDate || undefined,
           startTime: startTime || null,
           venue: venue || null,
+          registrationFee: Number(registrationFee),
           matchLevel: Number(matchLevel),
           sanctioningStatus,
         },
@@ -264,8 +269,12 @@ function BasicForm({ view, orgId, matchId, canEdit, onSaved, setError, setNotice
         <Field label="Venue">
           <Input value={venue} onChange={(e) => setVenue(e.target.value)} disabled={!canEdit} />
         </Field>
+        <Field label="Registration fee (₱)" hint="Charged per competitor; 0 = free match.">
+          <Input type="number" min={0} step="0.01" inputMode="decimal" value={registrationFee} onChange={(e) => setRegistrationFee(e.target.value)} disabled={!canEdit} />
+        </Field>
         <Field label="Level" required>
           <Select value={matchLevel} onChange={(e) => setMatchLevel(e.target.value)} disabled={!canEdit}>
+            <option value={0}>ClubShoot</option>
             {[1, 2, 3, 4, 5].map((l) => <option key={l} value={l}>Level {l}</option>)}
           </Select>
         </Field>
@@ -683,7 +692,8 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
   const [categoryId, setCategoryId] = useState('');
   const [squadId, setSquadId] = useState('');
   const [pf, setPf] = useState('MINOR');
-  const [pin, setPin] = useState('');
+  const [pin, setPin] = useState('0000');
+  const [paid, setPaid] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
 
@@ -718,14 +728,15 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
     try {
       await api(`/api/orgs/${orgId}/matches/${matchId}/registrations`, {
         method: 'POST',
-        json: { shooterId, divisionId: divisionId || null, categoryId: categoryId || null, declaredPowerFactor: pf, squadId: squadId || null, scorePin: pin },
+        json: { shooterId, divisionId: divisionId || null, categoryId: categoryId || null, declaredPowerFactor: pf, squadId: squadId || null, scorePin: pin, paid },
       });
       setShooterId('');
       setSearch('');
       setDivisionId('');
       setCategoryId('');
       setSquadId('');
-      setPin('');
+      setPin('0000');
+      setPaid(false);
       setFormOpen(false);
       load();
       onSaved();
@@ -799,15 +810,20 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
                 {squads.map((q) => <option key={q.id} value={q.id}>{q.name}{q.stageNumber ? ` · starts stage ${q.stageNumber}` : ''}</option>)}
               </Select>
             </Field>
-            <Field label="Verify PIN (4 digits)" required>
+            <Field label="Verify PIN" hint="Defaults to 0000 — the shooter enters this to confirm each score on match day.">
               <Input
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                 inputMode="numeric"
-                placeholder="e.g. 2468"
+                placeholder="e.g. 0000"
                 maxLength={4}
               />
-              <p className="mt-1 text-xs text-muted">The shooter enters this PIN to confirm each score on match day.</p>
+            </Field>
+            <Field label="Payment">
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
+                Paid registration fee
+              </label>
             </Field>
           </div>
           <div className="mt-3 flex gap-2">
@@ -836,6 +852,7 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
                 <Th>Status</Th>
                 <Th>Order</Th>
                 <Th>Verify</Th>
+                <Th>Paid</Th>
               </tr>
             </thead>
             <tbody>
@@ -903,6 +920,28 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
                   <Td>
                     {r.hasScorePin ? (
                       <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600"><Check className="h-3 w-3" /> PIN set</span>
+                    ) : (
+                      <span className="text-[10px] text-muted">—</span>
+                    )}
+                  </Td>
+                  <Td>
+                    {canRegister ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void api(`/api/orgs/${orgId}/matches/${matchId}/registrations/${r.id}`, { method: 'PATCH', json: { paid: !r.paid } })
+                            .then(load)
+                            .catch((err) => setError(err instanceof Error ? err.message : 'Could not update payment'));
+                        }}
+                        className={r.paid
+                          ? 'inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 transition hover:bg-emerald-500/20'
+                          : 'text-[10px] text-muted transition hover:text-ink'}
+                        title={r.paid ? 'Click to mark unpaid' : 'Click to mark paid'}
+                      >
+                        {r.paid ? <><Check className="h-3 w-3" /> Paid</> : 'Mark paid'}
+                      </button>
+                    ) : r.paid ? (
+                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600"><Check className="h-3 w-3" /> Paid</span>
                     ) : (
                       <span className="text-[10px] text-muted">—</span>
                     )}

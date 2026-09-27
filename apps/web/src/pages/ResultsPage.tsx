@@ -121,6 +121,14 @@ export default function ResultsPage() {
   );
 
   useEffect(() => {
+    if (!standings) return;
+    const hasCategory = standings.categories.some((c) => (c.categoryId ?? '__NONE__') === category);
+    const hasDivision = standings.divisions.some((d) => (d.divisionId ?? '__NONE__') === group);
+    if (category !== 'overall' && !hasCategory) setCategory('overall');
+    if (group !== 'overall' && !hasDivision) setGroup('overall');
+  }, [standings, category, group]);
+
+  useEffect(() => {
     void load(true);
     const id = window.setInterval(() => {
       if (live) void load(true);
@@ -193,20 +201,36 @@ export default function ResultsPage() {
               </span>
             </h3>
             <div className="flex flex-wrap items-center gap-2">
+              {standings.categories.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1 rounded-lg border border-line bg-navy-2 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setCategory('overall')}
+                    className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${category === 'overall' ? 'bg-accent text-[#17181a]' : 'text-muted hover:text-ink'}`}
+                  >
+                    Overall
+                  </button>
+                  {standings.categories.map((c) => {
+                    const val = c.categoryId ?? '__NONE__';
+                    return (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setCategory(val)}
+                        className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${category === val ? 'bg-accent text-[#17181a]' : 'text-muted hover:text-ink'}`}
+                      >
+                        {c.categoryName ?? 'Overall'}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
               <Select value={group} onChange={(e) => setGroup(e.target.value)} className="w-auto px-2 py-1.5 text-xs" disabled={category !== 'overall'}>
-                <option value="overall">Overall</option>
+                <option value="overall">All divisions</option>
                 {standings.divisions.map((d) => (
                   <option key={d.divisionId ?? '__'} value={d.divisionId ?? '__NONE__'}>{d.divisionName ?? 'Overall'} division</option>
                 ))}
               </Select>
-              {standings.categories.length > 0 ? (
-                <Select value={category} onChange={(e) => setCategory(e.target.value)} className="w-auto px-2 py-1.5 text-xs">
-                  <option value="overall">Overall</option>
-                  {standings.categories.map((c) => (
-                    <option key={c.categoryId ?? '__'} value={c.categoryId ?? '__NONE__'}>{c.categoryName ?? 'Overall'}</option>
-                  ))}
-                </Select>
-              ) : null}
             </div>
           </div>
           {rows.length === 0 ? (
@@ -219,6 +243,7 @@ export default function ResultsPage() {
                     <Th>#</Th>
                     <Th>Competitor</Th>
                     <Th>Division</Th>
+                    <Th>Category</Th>
                     <Th>PF</Th>
                     <Th right>Total</Th>
                   </tr>
@@ -235,6 +260,7 @@ export default function ResultsPage() {
                         {r.matchNumber ? <span className="ml-1.5 font-mono text-[10px] text-muted">{r.matchNumber}</span> : null}
                       </Td>
                       <Td className="text-muted">{r.divisionName ?? '—'}</Td>
+                      <Td className="text-muted">{r.categoryName ?? '—'}</Td>
                       <Td className="text-muted">{r.declaredPowerFactor}</Td>
                       <Td right mono className={r.hasScores ? 'font-semibold text-ink' : 'text-muted'}>{r.hasScores ? r.matchTotal.toFixed(3) : '–'}</Td>
                     </tr>

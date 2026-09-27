@@ -142,6 +142,8 @@ export interface Match {
   startTime: string | null;
   endDate: string | null;
   venue: string | null;
+  /** Registration fee per competitor in PHP; 0 means free. */
+  registrationFee: number;
   matchDirectorUserId: string | null;
   rangeMasterUserId: string | null;
   matchLevel: MatchLevel;
@@ -244,6 +246,8 @@ export interface MatchRegistration {
   updatedAt: string;
   /** True when a 4-digit score-verification PIN is set on this registration. */
   hasScorePin?: boolean;
+  /** True when the shooter has paid the match registration fee. */
+  paid: boolean;
 }
 
 export interface ScorePenaltyEvent {

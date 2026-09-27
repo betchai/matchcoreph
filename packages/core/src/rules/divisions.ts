@@ -51,6 +51,7 @@ export const DIVISION_DEFAULTS: DivisionDefault[] = [
 ];
 
 export const MATCH_LEVEL_LABELS: Record<(typeof MATCH_LEVELS)[number], string> = {
+  0: 'ClubShoot',
   1: 'Level I',
   2: 'Level II',
   3: 'Level III',

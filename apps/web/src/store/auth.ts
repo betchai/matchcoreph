@@ -77,6 +77,21 @@ export function useOrgPerm(orgId: string, permission: string): boolean {
   return allowed(roles, orgId, permission);
 }
 
+const UNRESTRICTED_SCORING_ROLES = [
+  'PLATFORM_SUPER_ADMIN',
+  'PLATFORM_ADMIN',
+  'ORGANIZATION_ADMIN',
+  'MATCH_DIRECTOR',
+  'RANGE_MASTER',
+  'RANGE_OFFICER',
+];
+
+/** True when the user is a Scorekeeper with no unrestricted scoring role, so they can only score assigned stages. */
+export function isStageScopedScorekeeper(roles: MeRole[], organizationId: string): boolean {
+  const grants = roles.filter((r) => r.organizationId === organizationId || r.organizationId === '*').map((r) => r.role);
+  return grants.includes('SCOREKEEPER') && !grants.some((r) => UNRESTRICTED_SCORING_ROLES.includes(r));
+}
+
 /** True when the user holds the permission anywhere (any org role or super admin). */
 export function useAnyPerm(permission: string): boolean {
   const user = useAuth((s) => s.user);

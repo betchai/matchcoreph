@@ -24,6 +24,7 @@ export function mapRegistration(row: Record<string, unknown>): MatchRegistration
     registeredAt: String(row.registered_at),
     updatedAt: String(row.updated_at),
     hasScorePin: Boolean(row.score_pin_hash),
+    paid: Boolean(row.paid),
   };
 }
 
@@ -46,6 +47,7 @@ export function registerCompetitor(
     squadId?: string | null;
     matchNumber?: string | null;
     scorePin?: string | null;
+    paid?: boolean;
   },
   actor: { userId: string; username: string | null },
 ): MatchRegistration {
@@ -82,11 +84,11 @@ export function registerCompetitor(
 
   const id = uuid();
   const now = new Date().toISOString();
-  const pinHash = input.scorePin ? hashPassword(input.scorePin) : null;
+  const pinHash = hashPassword(input.scorePin ?? '0000');
   db.prepare(
     `INSERT INTO match_registrations
-      (id, match_id, organization_id, shooter_id, shooter_number, division_id, category_id, declared_power_factor, squad_id, status, match_number, notes, score_pin_hash, registered_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'REGISTERED', ?, NULL, ?, ?, ?)`,
+      (id, match_id, organization_id, shooter_id, shooter_number, division_id, category_id, declared_power_factor, squad_id, status, match_number, notes, score_pin_hash, paid, registered_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'REGISTERED', ?, NULL, ?, ?, ?, ?)`,
   ).run(
     id,
     match.id,
@@ -99,6 +101,7 @@ export function registerCompetitor(
     input.squadId ?? null,
     input.matchNumber ?? null,
     pinHash,
+    input.paid ? 1 : 0,
     now,
     now,
   );
@@ -174,6 +177,7 @@ export function listRegistrations(
     status: r.status,
     matchNumber: (r.match_number as string) ?? null,
     hasScorePin: Boolean(r.score_pin_hash),
+    paid: Boolean(r.paid),
     registeredAt: String(r.registered_at),
   }));
 }
@@ -182,7 +186,7 @@ export function updateRegistration(
   db: Db,
   match: Match,
   registration: MatchRegistration,
-  patch: { divisionId?: string | null; categoryId?: string | null; declaredPowerFactor?: string; squadId?: string | null; matchNumber?: string | null; notes?: string | null; scorePin?: string | null },
+  patch: { divisionId?: string | null; categoryId?: string | null; declaredPowerFactor?: string; squadId?: string | null; matchNumber?: string | null; notes?: string | null; scorePin?: string | null; paid?: boolean },
   actor: { userId: string; username: string | null },
 ): MatchRegistration {
   if (patch.divisionId && patch.divisionId !== registration.divisionId) {
@@ -214,7 +218,7 @@ export function updateRegistration(
   }
   const now = new Date().toISOString();
   db.prepare(
-    `UPDATE match_registrations SET division_id=?, category_id=?, declared_power_factor=?, squad_id=?, match_number=?, notes=?, score_pin_hash=?, status=?, updated_at=? WHERE id=?`,
+    `UPDATE match_registrations SET division_id=?, category_id=?, declared_power_factor=?, squad_id=?, match_number=?, notes=?, score_pin_hash=?, paid=?, status=?, updated_at=? WHERE id=?`,
   ).run(
     patch.divisionId === undefined ? registration.divisionId : patch.divisionId,
     patch.categoryId === undefined ? registration.categoryId : patch.categoryId,
@@ -223,6 +227,7 @@ export function updateRegistration(
     patch.matchNumber === undefined ? registration.matchNumber : patch.matchNumber,
     patch.notes === undefined ? registration.notes : patch.notes,
     pinHash,
+    patch.paid === undefined ? (registration.paid ? 1 : 0) : patch.paid ? 1 : 0,
     registration.status,
     now,
     registration.id,

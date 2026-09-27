@@ -42,6 +42,8 @@ import {
   squadOverview,
 } from '../services/squads.js';
 import { body, authed, orgScope, param, queryStr } from './helpers.js';
+import { assignedStageIds, createAssignment, deleteAssignment, listAssignments } from '../services/assignments.js';
+import { z } from 'zod';
 import { canInOrg } from '../services/auth.js';
 import { forbidden } from '../services/utils.js';
 import {
@@ -302,6 +304,7 @@ export function orgRoutes(app: FastifyInstance): void {
       squadId: input.squadId as never,
       matchNumber: input.matchNumber as never,
       scorePin: input.scorePin as never,
+      paid: input.paid as never,
     }, { userId: ctx.user.id, username: ctx.user.username });
   });
 
@@ -333,5 +336,43 @@ export function orgRoutes(app: FastifyInstance): void {
     const { orgId } = orgScope(req, param(req, 'orgId'), 'checkin.manage');
     const m = loadMatch(req, orgId, param(req, 'matchId'));
     return listAttendance(req.db, m);
+  });
+
+  // ── Scorekeeper stage assignments ─────────────────────────────────────────
+
+  const assignmentCreateSchema = z.object({
+    userId: z.string().min(1),
+    stageId: z.string().min(1),
+  });
+
+  app.get('/api/orgs/:orgId/matches/:matchId/assignments', async (req) => {
+    const { orgId } = orgScope(req, param(req, 'orgId'), 'assignment.manage');
+    const m = loadMatch(req, orgId, param(req, 'matchId'));
+    return listAssignments(req.db, m);
+  });
+
+  app.post('/api/orgs/:orgId/matches/:matchId/assignments', async (req) => {
+    const { ctx, orgId } = orgScope(req, param(req, 'orgId'), 'assignment.manage');
+    const m = loadMatch(req, orgId, param(req, 'matchId'));
+    const input = assignmentCreateSchema.parse(body(req));
+    return createAssignment(req.db, m, input, { userId: ctx.user.id, username: ctx.user.username });
+  });
+
+  app.delete('/api/orgs/:orgId/matches/:matchId/assignments/:assignmentId', async (req) => {
+    const { ctx, orgId } = orgScope(req, param(req, 'orgId'), 'assignment.manage');
+    const m = loadMatch(req, orgId, param(req, 'matchId'));
+    deleteAssignment(req.db, m, param(req, 'assignmentId'), { userId: ctx.user.id, username: ctx.user.username });
+    return { ok: true };
+  });
+
+  app.get('/api/orgs/:orgId/matches/:matchId/assignments/me', async (req) => {
+    const { ctx, orgId } = orgScope(req, param(req, 'orgId'), 'match.view');
+    const m = loadMatch(req, orgId, param(req, 'matchId'));
+    const stageIds = assignedStageIds(req.db, ctx.user.id, m.id);
+    const stages = stageIds.map((id) => {
+      const s = getStage(req.db, m, id);
+      return { stageId: s.id, stageNumber: s.number, stageName: s.name };
+    });
+    return { stageIds, stages };
   });
 }

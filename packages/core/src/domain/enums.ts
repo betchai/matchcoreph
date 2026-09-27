@@ -20,7 +20,7 @@ export type ScoringMethod = (typeof SCORING_METHODS)[number];
 export const SANCTIONING_STATUSES = ['CLUB', 'PENDING_SANCTION', 'PPSA_SANCTIONED', 'IPSC_SANCTIONED'] as const;
 export type SanctioningStatus = (typeof SANCTIONING_STATUSES)[number];
 
-export const MATCH_LEVELS = [1, 2, 3, 4, 5] as const;
+export const MATCH_LEVELS = [0, 1, 2, 3, 4, 5] as const;
 export type MatchLevel = (typeof MATCH_LEVELS)[number];
 
 export const MATCH_STATUSES = [
@@ -133,6 +133,8 @@ export const AUDIT_ACTIONS = [
   'PASSWORD_CHANGED',
   'SCORE_PIN_RESET',
   'SCORE_SYNCED',
+  'ASSIGNMENT_CREATED',
+  'ASSIGNMENT_REMOVED',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

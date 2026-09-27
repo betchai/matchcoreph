@@ -5,7 +5,7 @@ export interface CategoryDefault {
 }
 
 export const CATEGORY_DEFAULTS: CategoryDefault[] = [
-  { code: 'OVERALL', name: 'Overall', description: 'All competitors.' },
+  { code: 'OVERALL', name: 'Unclassified', description: 'All competitors.' },
   { code: 'LADY', name: 'Lady', description: 'Female competitors.' },
   { code: 'JUNIOR', name: 'Junior', description: 'Competitors within the junior age band.' },
   { code: 'SENIOR', name: 'Senior', description: 'Competitors within the senior age band.' },

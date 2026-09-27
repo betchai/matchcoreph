@@ -304,7 +304,7 @@ export function computeMatchStandings(db: Db, match: Match, opts: { persist?: bo
     const categoryId = g.key;
     const catName = categoryId
       ? ((db.prepare('SELECT name FROM categories WHERE id = ?').get(categoryId) as { name: string } | undefined)?.name ?? 'Unknown')
-      : 'Overall';
+      : 'Unclassified';
     return { categoryId, categoryName: catName, rows: enrich(ordered(g.rows)) };
   });
 

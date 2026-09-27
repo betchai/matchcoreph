@@ -208,7 +208,7 @@ describe('results', () => {
 
   it('does not report unscored competitors as a tie', async () => {
     const prod = (u.db.prepare("SELECT id FROM divisions WHERE name = 'Production'").get() as { id: string }).id;
-    const overall = (u.db.prepare("SELECT id FROM categories WHERE name = 'Overall'").get() as { id: string }).id;
+    const overall = (u.db.prepare("SELECT id FROM categories WHERE name = 'Unclassified'").get() as { id: string }).id;
     const squadId = (u.db.prepare('SELECT id FROM squads LIMIT 1').get() as { id: string }).id;
     const shooter = await u.app.inject(authed({ method: 'POST', url: '/api/shooters', payload: { firstName: 'No', lastName: 'Scores', email: 'noscores@t.example' } }, u.adminToken));
     expect(shooter.statusCode).toBe(200);
@@ -396,10 +396,10 @@ describe('shooter verification PIN (submit)', () => {
     expect(res.json().error).toBe('SCORE_PIN_MISMATCH');
   });
 
-  it('rejects submit when no PIN was set at registration (400)', async () => {
+  it('defaults the PIN to 0000 when none is given at registration, so a wrong PIN is rejected (403)', async () => {
     const shooter = createShooter(u.db, { firstName: 'No', lastName: 'Pin', email: 'nopin@t.example' }, { userId: 'seed', username: 'seed' });
     const prod = (u.db.prepare("SELECT id FROM divisions WHERE name = 'Production'").get() as { id: string }).id;
-    const overall = (u.db.prepare("SELECT id FROM categories WHERE name = 'Overall'").get() as { id: string }).id;
+    const overall = (u.db.prepare("SELECT id FROM categories WHERE name = 'Unclassified'").get() as { id: string }).id;
     const squadId = (u.db.prepare('SELECT id FROM squads LIMIT 1').get() as { id: string }).id;
     const reg = registerCompetitor(u.db, getMatch(u.db, u.orgId, u.matchId), { shooterId: shooter.id, divisionId: prod, categoryId: overall, declaredPowerFactor: 'MINOR', squadId }, { userId: 'seed', username: 'seed' });
     const res = await u.app.inject(
@@ -407,13 +407,13 @@ describe('shooter verification PIN (submit)', () => {
         {
           method: 'POST',
           url: `/api/orgs/${u.orgId}/matches/${u.matchId}/scores/submit`,
-          payload: { ...enterScorePayload(u, reg.id, fullScore(u.targetIds)), confirmPin: '1234' },
+          payload: { ...enterScorePayload(u, reg.id, fullScore(u.targetIds)), confirmPin: '9999' },
         },
         u.adminToken,
       ),
     );
-    expect(res.statusCode).toBe(400);
-    expect(res.json().error).toBe('SCORE_PIN_NOT_SET');
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('SCORE_PIN_MISMATCH');
   });
 
   it('accepts a submit with the correct PIN', async () => {

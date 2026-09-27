@@ -186,6 +186,7 @@ export const DDL: string[] = [
     start_time TEXT,
     end_date TEXT,
     venue TEXT,
+    registration_fee REAL NOT NULL DEFAULT 0,
     match_director_user_id TEXT,
     range_master_user_id TEXT,
     match_level INTEGER NOT NULL DEFAULT 1,
@@ -299,6 +300,7 @@ export const DDL: string[] = [
     match_number TEXT,
     notes TEXT,
     score_pin_hash TEXT,
+    paid INTEGER NOT NULL DEFAULT 0,
     registered_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE (match_id, shooter_id)

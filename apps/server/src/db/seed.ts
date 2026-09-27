@@ -58,17 +58,34 @@ function seedDefaultRulesets(db: Db, actor: { userId: string; username: string |
 
 // Demo competitor dataset (clearly fictional).
 const SHOOTERS: { lastName: string; firstName: string; gender: 'MALE' | 'FEMALE'; division: string; category: string; pf: 'MINOR' | 'MAJOR' }[] = [
-  { lastName: 'Reyes', firstName: 'Andres', gender: 'MALE', division: 'Production', category: 'Overall', pf: 'MINOR' },
+  { lastName: 'Reyes', firstName: 'Andres', gender: 'MALE', division: 'Production', category: 'Unclassified', pf: 'MINOR' },
   { lastName: 'Dela Cruz', firstName: 'Juan', gender: 'MALE', division: 'Production', category: 'Senior', pf: 'MINOR' },
   { lastName: 'Santos', firstName: 'Maria', gender: 'FEMALE', division: 'Production Optics', category: 'Lady', pf: 'MINOR' },
-  { lastName: 'Garcia', firstName: 'Paolo', gender: 'MALE', division: 'Standard', category: 'Overall', pf: 'MAJOR' },
+  { lastName: 'Garcia', firstName: 'Paolo', gender: 'MALE', division: 'Standard', category: 'Unclassified', pf: 'MAJOR' },
   { lastName: 'Torres', firstName: 'Lourdes', gender: 'FEMALE', division: 'Standard', category: 'Lady', pf: 'MINOR' },
-  { lastName: 'Ramos', firstName: 'Miguel', gender: 'MALE', division: 'Open', category: 'Overall', pf: 'MAJOR' },
+  { lastName: 'Ramos', firstName: 'Miguel', gender: 'MALE', division: 'Open', category: 'Unclassified', pf: 'MAJOR' },
   { lastName: 'Aquino', firstName: 'Carlo', gender: 'MALE', division: 'Open', category: 'Senior', pf: 'MINOR' },
   { lastName: 'Navarro', firstName: 'Isabel', gender: 'FEMALE', division: 'Production Optics', category: 'Lady', pf: 'MINOR' },
 ];
 
 const SQUAD_NAMES = ['Squad A', 'Squad B', 'Squad C', 'Squad D'];
+
+const demoShooterEmail = (s: { firstName: string; lastName: string }): string =>
+  `${s.firstName.toLowerCase()}.${s.lastName.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+
+/** Reuses an existing demo shooter by email; only creates a new row when none exists (idempotent). */
+function findOrCreateShooter(
+  db: Db,
+  s: { firstName: string; lastName: string; gender: 'MALE' | 'FEMALE' },
+  actor: { userId: string; username: string | null },
+): string {
+  const email = demoShooterEmail(s);
+  const existing = db.prepare('SELECT id FROM shooters WHERE email = ?').get(email) as { id: string } | undefined;
+  if (existing) return existing.id;
+  const shooter = createShooter(db, { lastName: s.lastName, firstName: s.firstName, email, gender: s.gender }, actor);
+  console.log(`  seeded shooter: ${shooter.firstName} ${shooter.lastName} (${shooter.shooterNumber})`);
+  return shooter.id;
+}
 
 type SeedStageCfg = {
   number: number;
@@ -338,21 +355,12 @@ function seedClubMatch(
   console.log(`✔ Squads: ${squads.map((s) => s.name).join(', ')}`);
 
   const registrations = cfg.shooters.map((s, i) => {
-    const shooter = createShooter(
-      db,
-      {
-        lastName: s.lastName,
-        firstName: s.firstName,
-        email: `${s.firstName.toLowerCase()}.${s.lastName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-        gender: s.gender,
-      },
-      orgActor,
-    );
+    const shooterId = findOrCreateShooter(db, s, orgActor);
     return registerCompetitor(
       db,
       configured,
       {
-        shooterId: shooter.id,
+        shooterId,
         divisionId: divisionByName[s.division],
         categoryId: categoryByName[s.category],
         declaredPowerFactor: s.pf,
@@ -439,7 +447,7 @@ export function seed(db: Db): void {
   console.log('✔ Org admin sjepsc.admin ready');
 
   const COMMON_DIVISIONS = ['Production', 'Production Optics', 'Standard', 'Open'];
-  const COMMON_CATEGORIES = ['Overall', 'Lady', 'Senior'];
+  const COMMON_CATEGORIES = ['Unclassified', 'Lady', 'Senior'];
 
   seedClubMatch(db, org, orgActor, adminActor, rulesetId, {
     name: 'San Juan Club Shoot',

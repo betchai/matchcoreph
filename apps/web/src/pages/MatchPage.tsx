@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ClipboardList, Crosshair, LayoutDashboard, Radio, Settings2 } from 'lucide-react';
+import { Link, Navigate, useParams } from 'react-router-dom';
+import { Check, ClipboardList, Crosshair, LayoutDashboard, Radio, Settings2, Trash2, UserCheck, Wallet, BarChart3 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { fmtDate } from '../lib/format.js';
 import { useOrg } from '../lib/org.js';
-import { Badge, Button, Card, Empty, ErrorBanner, Input, Spinner } from '../components/ui.js';
+import { useAuth, useOrgPerm, isStageScopedScorekeeper } from '../store/auth.js';
+import { Badge, Button, Card, Empty, ErrorBanner, Input, Select, Spinner } from '../components/ui.js';
 
 type StageRow = { id: string; number: number; name: string; scoringMethod: string; loadType?: string | null };
 type SquadRow = { id: string; name: string; memberCount: number };
-type RegistrationRow = { id: string; firstName: string; lastName: string; divisionName: string | null; squadName: string | null; status: string };
+type RegistrationRow = { id: string; firstName: string; lastName: string; divisionName: string | null; squadName: string | null; status: string; paid?: boolean };
 
 type MatchView = {
   match: Record<string, unknown>;
@@ -22,8 +23,116 @@ const NAV_LINKS = [
   { to: 'configure', label: 'Wizard & setup', icon: Settings2 },
   { to: 'scoring', label: 'Score entry', icon: Crosshair },
   { to: 'results', label: 'Live results', icon: Radio },
+  { to: 'insights', label: 'Insights', icon: BarChart3 },
   { to: 'control', label: 'Control center', icon: LayoutDashboard },
 ];
+
+type AssignmentView = { id: string; username: string; displayName: string | null; stageId: string; stageNumber: number; stageName: string };
+type OrgUserRow = { id: string; username: string; displayName: string | null; role: string | null };
+
+function ScorekeeperAssignments({ orgId, matchId }: { orgId: string; matchId: string }) {
+  const [assignments, setAssignments] = useState<AssignmentView[]>([]);
+  const [scorekeepers, setScorekeepers] = useState<OrgUserRow[]>([]);
+  const [stages, setStages] = useState<StageRow[]>([]);
+  const [userId, setUserId] = useState('');
+  const [stageId, setStageId] = useState('');
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const load = () => {
+    setError('');
+    Promise.all([
+      api<AssignmentView[]>(`/api/orgs/${orgId}/matches/${matchId}/assignments`),
+      api<OrgUserRow[]>(`/api/orgs/${orgId}/users`),
+      api<StageRow[]>(`/api/orgs/${orgId}/matches/${matchId}/stages`),
+    ])
+      .then(([a, users, s]) => {
+        setAssignments(a);
+        setScorekeepers(users.filter((u) => u.role === 'SCOREKEEPER'));
+        setStages(s);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load assignments'));
+  };
+
+  useEffect(load, [orgId, matchId]);
+
+  async function assign(e: React.FormEvent) {
+    e.preventDefault();
+    if (!userId || !stageId) return;
+    setBusy('A');
+    setNotice('');
+    try {
+      await api(`/api/orgs/${orgId}/matches/${matchId}/assignments`, { method: 'POST', json: { userId, stageId } });
+      setUserId('');
+      setStageId('');
+      load();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : 'Failed to assign scorekeeper');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function remove(id: string) {
+    setBusy(id);
+    setNotice('');
+    try {
+      await api(`/api/orgs/${orgId}/matches/${matchId}/assignments/${id}`, { method: 'DELETE' });
+      load();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : 'Failed to remove assignment');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <Card className="p-4">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+        <UserCheck className="h-4 w-4" /> Scorekeeper assignments
+      </h3>
+      {error ? <ErrorBanner message={error} /> : null}
+      {notice ? <p className="mb-2 text-sm text-rose">{notice}</p> : null}
+      <form className="mb-3 flex flex-wrap gap-2" onSubmit={assign}>
+        <Select value={userId} onChange={(e) => setUserId(e.target.value)} className="min-w-44">
+          <option value="">Scorekeeper…</option>
+          {scorekeepers.map((u) => (
+            <option key={u.id} value={u.id}>{u.displayName ?? u.username}</option>
+          ))}
+        </Select>
+        <Select value={stageId} onChange={(e) => setStageId(e.target.value)} className="min-w-40">
+          <option value="">Stage…</option>
+          {stages.map((s) => (
+            <option key={s.id} value={s.id}>Stage {s.number}: {s.name}</option>
+          ))}
+        </Select>
+        <Button type="submit" disabled={busy === 'A' || !userId || !stageId}>Assign</Button>
+      </form>
+      {assignments.length === 0 ? (
+        <Empty>No scorekeeper assignments yet — assign a scorekeeper to a stage above.</Empty>
+      ) : (
+        <ul className="space-y-1.5">
+          {assignments.map((a) => (
+            <li key={a.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className="shrink-0 text-ink">{a.displayName ?? a.username}</span>
+              <span className="flex-1 text-xs text-muted">Stage {a.stageNumber}: {a.stageName}</span>
+              <button
+                type="button"
+                onClick={() => void remove(a.id)}
+                disabled={busy === a.id}
+                className="text-muted transition hover:text-rose disabled:opacity-50"
+                aria-label="Remove assignment"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
 
 export default function MatchPage() {
   const { orgId = '', matchId = '' } = useParams();
@@ -46,6 +155,9 @@ export default function MatchPage() {
   };
 
   const org = useOrg(orgId);
+  const canManageAssignments = useOrgPerm(orgId, 'assignment.manage');
+  const roles = useAuth((s) => s.roles);
+  const scopedToStage = isStageScopedScorekeeper(roles, orgId);
 
   useEffect(load, [orgId, matchId]);
 
@@ -90,6 +202,8 @@ export default function MatchPage() {
     }
   }
 
+  if (scopedToStage) return <Navigate to="scoring" replace />;
+
   if (error) return <ErrorBanner message={error} />;
   if (!data) return <Spinner />;
 
@@ -107,7 +221,16 @@ export default function MatchPage() {
             })()}
           </p>
         </div>
-        <Badge tone={m.status === 'PUBLISHED' ? 'emerald' : m.status === 'OPEN' ? 'sky' : 'amber'}>{String(m.status ?? '')}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge tone={m.status === 'PUBLISHED' ? 'emerald' : m.status === 'OPEN' ? 'sky' : 'amber'}>{String(m.status ?? '')}</Badge>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-2.5 py-1 text-[11px] font-semibold text-ink"
+            title={`${(m as { registrationsPaid?: number }).registrationsPaid ?? 0} paid · ₱${Number((m as { registrationFee?: number }).registrationFee ?? 0).toFixed(2)} per shooter`}
+          >
+            <Wallet className="h-3.5 w-3.5 text-brand" />
+            ₱{Number((m as { feesCollected?: number }).feesCollected ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} collected
+          </span>
+        </div>
       </div>
 
       <nav className="flex flex-wrap gap-2">
@@ -221,6 +344,8 @@ export default function MatchPage() {
         </Card>
       </div>
 
+      {canManageAssignments ? <ScorekeeperAssignments orgId={orgId} matchId={matchId} /> : null}
+
       <Card className="p-4">
         <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
           <ClipboardList className="h-4 w-4" /> Registrations ({data.registrations.length})
@@ -235,6 +360,9 @@ export default function MatchPage() {
                   <tr key={r.id} className="border-t border-line">
                     <td className="py-1.5 text-ink">
                       {r.lastName}, {r.firstName}
+                      {r.paid ? (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 align-middle text-[10px] font-medium text-emerald-600"><Check className="h-3 w-3" /> Paid</span>
+                      ) : null}
                     </td>
                     <td className="py-1.5 text-xs text-muted">{r.divisionName ?? '—'}</td>
                     <td className="py-1.5 text-right text-xs text-muted">{r.squadName ?? null}</td>

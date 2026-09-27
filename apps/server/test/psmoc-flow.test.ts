@@ -38,7 +38,7 @@ async function seedPsmocUniverse(): Promise<PsmocUniverse> {
   const prod = divisions.find((d) => d.name === 'Production')!.id;
   const open = divisions.find((d) => d.name === 'Open')!.id;
   void open;
-  const overall = cats.find((c) => c.name === 'Overall')!.id;
+  const overall = cats.find((c) => c.name === 'Unclassified')!.id;
 
   const match = createMatch(db, org.id, { name: 'PSMOC Club Shoot', matchType: 'CLUB_SHOOT', startDate: '2026-06-01', venue: 'Range', matchLevel: 1, sanctioningStatus: 'CLUB' }, actor);
   setMatchDisciplines(db, match, ['HANDGUN'], actor);

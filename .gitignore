@@ -5,7 +5,9 @@ dist/
 .env
 .env.local
 coverage/
-/data/
+/data/*
+!/data/ppsa.db
+/apps/server/data/
 *.log
 /argscheck.cjs
 /countargs.cjs

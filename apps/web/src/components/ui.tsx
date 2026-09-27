@@ -28,8 +28,8 @@ export function Spinner({ className = 'h-5 w-5' }: { className?: string }) {
   return <div className={`animate-spin rounded-full border-2 border-[#48494c] border-t-brand ${className}`} />;
 }
 
-export function Card({ className = '', children }: { className?: string; children: ReactNode }) {
-  return <div className={`rounded-card border border-line bg-panel shadow-card ${className}`}>{children}</div>;
+export function Card({ className = '', children, onClick }: { className?: string; children: ReactNode; onClick?: () => void }) {
+  return <div className={`rounded-card border border-line bg-panel shadow-card ${className}`} onClick={onClick} role={onClick ? 'button' : undefined}>{children}</div>;
 }
 
 export function Input({ className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {

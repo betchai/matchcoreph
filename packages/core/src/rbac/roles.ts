@@ -33,6 +33,7 @@ export const PERMISSIONS = [
   'score.correct',
   'score.view',
   'score.audit',
+  'assignment.manage',
   'disputes.manage',
   'reports.generate',
   'results.live',
@@ -66,6 +67,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'score.unlock',
     'score.correct',
     'score.audit',
+    'assignment.manage',
   ],
   ORGANIZATION_ADMIN: [
     'org.view',
@@ -93,6 +95,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'score.correct',
     'score.view',
     'score.audit',
+    'assignment.manage',
     'disputes.manage',
     'reports.generate',
     'results.live',

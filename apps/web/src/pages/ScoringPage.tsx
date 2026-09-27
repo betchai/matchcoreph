@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Check, Delete, Eye, Lock, Pencil, RotateCcw, Search, ShieldCheck, X } from 'lucide-react';
 import { api, ApiError } from '../lib/api.js';
-import { useAuth, useOrgPerm } from '../store/auth.js';
+import { useAuth, useOrgPerm, isStageScopedScorekeeper } from '../store/auth.js';
 import { useMatch } from '../lib/match.js';
 import { Badge, Button, Card, Empty, ErrorBanner, Field, Input, Notice, PageHeader, Select, Spinner, Table, Td, Th } from '../components/ui.js';
 
@@ -373,6 +373,7 @@ export default function ScoringPage() {
   const user = useAuth((s) => s.user);
   const roles = useAuth((s) => s.roles);
   const match = useMatch(orgId, matchId);
+  const scoped = isStageScopedScorekeeper(roles, orgId);
 
   const activeStage = useMemo(() => stages.find((s) => s.id === stageId) ?? stages[0] ?? null, [stages, stageId]);
   const activeStageId = activeStage?.id ?? '';
@@ -390,17 +391,19 @@ export default function ScoringPage() {
     Promise.all([
       api<Stage[]>(`/api/orgs/${orgId}/matches/${matchId}/stages`),
       api<Registration[]>(`/api/orgs/${orgId}/matches/${matchId}/registrations`),
+      scoped ? api<{ stageIds: string[] }>(`/api/orgs/${orgId}/matches/${matchId}/assignments/me`) : Promise.resolve(null),
     ])
-      .then(([stageRows, regRows]) => {
-        setStages(stageRows);
+      .then(([stageRows, regRows, mine]) => {
+        const allowed = scoped && mine ? stageRows.filter((s) => mine.stageIds.includes(s.id)) : stageRows;
+        setStages(allowed);
         setRegistrations(regRows);
-        const first = stageRows[0]?.id ?? '';
+        const first = allowed[0]?.id ?? '';
         setStageId(first);
         if (first) loadScores(first);
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load scoring data'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId, matchId]);
+  }, [orgId, matchId, scoped]);
 
   useEffect(() => {
     if (!activeStageId) return;
@@ -714,7 +717,9 @@ export default function ScoringPage() {
       ) : null}
 
       {stages.length === 0 ? (
-        <Card className="p-6"><Empty>No stages yet — create stages before scoring.</Empty></Card>
+        <Card className="p-6">
+          <Empty>{scoped ? 'You are not assigned to any stage yet. An administrator needs to assign you to a stage before you can score.' : 'No stages yet — create stages before scoring.'}</Empty>
+        </Card>
       ) : (
         <>
           <div className="-mt-2 flex items-center justify-between gap-3">

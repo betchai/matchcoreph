@@ -1,6 +1,6 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { CalendarDays, ClipboardCheck, Gauge, LayoutGrid, ListChecks, LogOut, Radio, Settings2, Target, Users, UserRound } from 'lucide-react';
-import { useAuth } from '../store/auth.js';
+import { useAuth, allowed } from '../store/auth.js';
 import { Button } from './ui.js';
 import { useOrg } from '../lib/org.js';
 import { useMatch } from '../lib/match.js';
@@ -47,13 +47,17 @@ export default function Shell({ title, children }: { title: string; children: Re
 
   const active = (to: string, exact?: boolean) => (exact ? pathname === to : pathname.startsWith(to));
 
+  const canInOrg = (permission: string) => allowed(roles, orgId, permission);
+
   const orgNav: NavItem[] = orgId
     ? [
         { label: 'Matches', to: `/orgs/${orgId}`, icon: <CalendarDays className="h-4 w-4" />, exact: true, mobile: true },
         ...(matchId
           ? [
               { label: 'Match', to: `/orgs/${orgId}/matches/${matchId}`, icon: <Target className="h-4 w-4" />, exact: true, mobile: true },
-              { label: 'Setup wizard', to: `/orgs/${orgId}/matches/${matchId}/configure`, icon: <Settings2 className="h-4 w-4" />, mobile: true },
+              ...(canInOrg('match.configure')
+                ? [{ label: 'Setup wizard', to: `/orgs/${orgId}/matches/${matchId}/configure`, icon: <Settings2 className="h-4 w-4" />, mobile: true }]
+                : []),
               { label: 'Stages', to: `/orgs/${orgId}/matches/${matchId}/stages`, icon: <ListChecks className="h-4 w-4" /> },
               { label: 'Score entry', to: `/orgs/${orgId}/matches/${matchId}/scoring`, icon: <ClipboardCheck className="h-4 w-4" />, mobile: true },
               { label: 'Live results', to: `/orgs/${orgId}/matches/${matchId}/results`, icon: <Radio className="h-4 w-4" />, mobile: true },

@@ -64,6 +64,8 @@ export function migrate(db: Db): void {
       { table: 'scores', column: 'time_adjustments_seconds', ddl: 'ALTER TABLE scores ADD COLUMN time_adjustments_seconds REAL' },
       { table: 'stage_results', column: 'final_time_seconds', ddl: 'ALTER TABLE stage_results ADD COLUMN final_time_seconds REAL' },
       { table: 'match_registrations', column: 'score_pin_hash', ddl: 'ALTER TABLE match_registrations ADD COLUMN score_pin_hash TEXT' },
+      { table: 'matches', column: 'registration_fee', ddl: 'ALTER TABLE matches ADD COLUMN registration_fee REAL NOT NULL DEFAULT 0' },
+      { table: 'match_registrations', column: 'paid', ddl: 'ALTER TABLE match_registrations ADD COLUMN paid INTEGER NOT NULL DEFAULT 0' },
       { table: 'divisions', column: 'created_at', ddl: 'ALTER TABLE divisions ADD COLUMN created_at TEXT NOT NULL DEFAULT \'\'' },
       { table: 'divisions', column: 'updated_at', ddl: 'ALTER TABLE divisions ADD COLUMN updated_at TEXT NOT NULL DEFAULT \'\'' },
       { table: 'categories', column: 'created_at', ddl: 'ALTER TABLE categories ADD COLUMN created_at TEXT NOT NULL DEFAULT \'\'' },

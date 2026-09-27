@@ -16,6 +16,7 @@ import ConfigurePage from './pages/ConfigurePage.js';
 import ScoringPage from './pages/ScoringPage.js';
 import ControlPage from './pages/ControlPage.js';
 import ResultsPage from './pages/ResultsPage.js';
+import InsightsPage from './pages/InsightsPage.js';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -89,6 +90,7 @@ export default function App() {
           <Route path="/orgs/:orgId/matches/:matchId/scoring" element={<Shell title="Score entry"><ScoringPage /></Shell>} />
           <Route path="/orgs/:orgId/matches/:matchId/control" element={<Shell title="Control center"><ControlPage /></Shell>} />
           <Route path="/orgs/:orgId/matches/:matchId/results" element={<Shell title="Live results"><ResultsPage /></Shell>} />
+          <Route path="/orgs/:orgId/matches/:matchId/insights" element={<Shell title="Insights"><InsightsPage /></Shell>} />
           <Route path="*" element={<Shell title="Not found"><NotFound /></Shell>} />
         </Route>
       </Routes>

@@ -18,6 +18,7 @@ export const idSchema = z.string().min(1).max(64);
 export const optionalId = z.string().min(1).max(64).nullable().optional();
 
 export const matchLevelSchema = z.union([
+  z.literal(0),
   z.literal(1),
   z.literal(2),
   z.literal(3),
@@ -86,6 +87,7 @@ export const matchStep1Schema = z.object({
   startTime: z.string().nullable().optional(),
   endDate: z.string().nullable().optional(),
   venue: z.string().max(300).nullable().optional(),
+  registrationFee: z.coerce.number().min(0).optional(),
   matchDirectorUserId: z.string().nullable().optional(),
   rangeMasterUserId: z.string().nullable().optional(),
   matchLevel: matchLevelSchema,
@@ -153,7 +155,8 @@ export const registrationSchema = z.object({
   squadId: z.string().nullable().optional(),
   matchNumber: z.string().max(40).nullable().optional(),
   status: z.enum(COMPETITOR_STATUSES).default('REGISTERED'),
-  scorePin: z.string().regex(/^\d{4}$/, 'PIN must be exactly 4 digits'),
+  scorePin: z.string().regex(/^\d{4}$/, 'PIN must be exactly 4 digits').optional(),
+  paid: z.boolean().optional(),
 });
 
 export const registrationsBulkSchema = z.object({

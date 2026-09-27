@@ -37,6 +37,7 @@ export function mapMatch(row: Record<string, unknown>): Match {
     startTime: (row.start_time as string) ?? null,
     endDate: (row.end_date as string) ?? null,
     venue: (row.venue as string) ?? null,
+    registrationFee: Number(row.registration_fee ?? 0),
     matchDirectorUserId: (row.match_director_user_id as string) ?? null,
     rangeMasterUserId: (row.range_master_user_id as string) ?? null,
     matchLevel: Number(row.match_level) as Match['matchLevel'],
@@ -102,6 +103,7 @@ export function createMatch(
     startTime?: string | null;
     endDate?: string | null;
     venue?: string | null;
+    registrationFee?: number | null;
     matchDirectorUserId?: string | null;
     rangeMasterUserId?: string | null;
     matchLevel?: number;
@@ -114,11 +116,11 @@ export function createMatch(
   const now = new Date().toISOString();
   const defaults = seedRulesetFor(db, organizationId, (input as { discipline?: Discipline } | null)?.discipline, actor);
   db.prepare(
-    `INSERT INTO matches
-      (id, organization_id, name, match_type, start_date, start_time, end_date, venue,
+`INSERT INTO matches
+      (id, organization_id, name, match_type, start_date, start_time, end_date, venue, registration_fee,
        match_director_user_id, range_master_user_id, match_level, sanctioning_status, status,
        visibility, ruleset_id, ruleset_version, tie_break_method, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', 'PRIVATE', ?, ?, 'NONE', ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', 'PRIVATE', ?, ?, 'NONE', ?, ?, ?)`,
   ).run(
     id,
     organizationId,
@@ -128,6 +130,7 @@ export function createMatch(
     input.startTime ?? null,
     input.endDate ?? null,
     input.venue ?? null,
+    input.registrationFee ?? 0,
     input.matchDirectorUserId ?? null,
     input.rangeMasterUserId ?? null,
     input.matchLevel ?? 1,
@@ -188,7 +191,7 @@ export function updateMatch(
   const now = new Date().toISOString();
   db.prepare(
     `UPDATE matches SET
-       name=?, match_type=?, start_date=?, start_time=?, end_date=?, venue=?,
+       name=?, match_type=?, start_date=?, start_time=?, end_date=?, venue=?, registration_fee=?,
        match_director_user_id=?, range_master_user_id=?, match_level=?, sanctioning_status=?,
        status=?, visibility=?, aggregate_method=?, tie_break_method=?, updated_at=?
      WHERE id=?`,
@@ -199,6 +202,7 @@ export function updateMatch(
     merged.startTime ?? null,
     merged.endDate ?? null,
     merged.venue ?? null,
+    merged.registrationFee ?? 0,
     merged.matchDirectorUserId ?? null,
     merged.rangeMasterUserId ?? null,
     merged.matchLevel,
@@ -445,6 +449,7 @@ export function matchView(db: Db, match: Match): Record<string, unknown> {
   const stages = db.prepare('SELECT * FROM stages WHERE match_id = ? AND active = 1 ORDER BY number').all(match.id) as Record<string, unknown>[];
   const squads = db.prepare('SELECT * FROM squads WHERE match_id = ? ORDER BY name').all(match.id) as Record<string, unknown>[];
   const registrations = db.prepare('SELECT count(*) c FROM match_registrations WHERE match_id = ?').get(match.id) as { c: number };
+  const paid = db.prepare('SELECT count(*) c FROM match_registrations WHERE match_id = ? AND paid = 1').get(match.id) as { c: number };
   const rs = getRuleset(db, match.rulesetId);
   return {
     ...match,
@@ -463,6 +468,9 @@ export function matchView(db: Db, match: Match): Record<string, unknown> {
     stageCount: stages.length,
     squadCount: squads.length,
     registrationCount: Number(registrations.c),
+    registrationsPaid: Number(paid.c),
+    /** Total registration fees collected so far: registration_fee × paid competitors. */
+    feesCollected: Math.round(match.registrationFee * Number(paid.c) * 100) / 100,
     ruleset: { ...rs, parameters: [] },
     wizard: wizardState(db, match),
   };
