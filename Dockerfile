@@ -35,6 +35,7 @@ COPY --from=build /app/apps/server/dist ./apps/server/dist
 COPY --from=build /app/apps/web/package.json ./apps/web/package.json
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY data/ppsa.db ./baked/ppsa.db
+COPY matchcoreph_landing_page.html ./
 
 EXPOSE 4000
 CMD ["sh", "-c", "mkdir -p data && [ -f data/ppsa.db ] || cp baked/ppsa.db data/ppsa.db; exec node apps/server/dist/index.js"]

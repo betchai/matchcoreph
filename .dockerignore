@@ -9,7 +9,6 @@ coverage
 data/*
 !data/ppsa.db
 apps/server/data
-matchcoreph_landing_page.html
 ppsascorer_complete_mockup.html
 ico.png
 argscheck.cjs
