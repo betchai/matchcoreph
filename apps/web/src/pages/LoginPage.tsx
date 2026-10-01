@@ -122,7 +122,7 @@ navigate('/dashboard', { replace: true });
     <div className="flex min-h-screen items-center justify-center bg-app px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-7 flex flex-col items-center text-center">
-          <a href="/" className="flex items-center gap-2.5">
+          <a href="/landing" className="flex items-center gap-2.5">
             <img src="/ico.png" alt="MatchCorePH logo" className="h-12 w-12 rounded-2xl object-cover shadow-card" />
             <span className="text-xl font-black tracking-tight text-ink">MatchCore<span className="text-[#ff7ab0]">PH</span></span>
           </a>

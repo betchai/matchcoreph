@@ -56,7 +56,15 @@ export function buildApp(db: Db, opts: { webDist?: string } = {}): import('fasti
     return reply.status(404).send({ error: 'NOT_FOUND', message: 'Landing page not found.' });
   });
 
-  app.get('/landing', (_req, reply) => reply.redirect('/', 301));
+  app.get('/landing', (_req, reply) => {
+    if (existsSync(LANDING_PATH)) {
+      return reply
+        .type('text/html; charset=utf-8')
+        .header('Cache-Control', 'no-cache')
+        .send(readFileSync(LANDING_PATH));
+    }
+    return reply.status(404).send({ error: 'NOT_FOUND', message: 'Landing page not found.' });
+  });
 
   app.setNotFoundHandler((req, reply) => {
     const indexHtml = path.join(webDist, 'index.html');
