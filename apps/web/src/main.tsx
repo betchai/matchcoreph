@@ -6,6 +6,10 @@ import App from './App.js';
 
 const path = window.location.pathname;
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((reg) => reg.update()));
+}
+
 if (path === '/' || path === '/landing') {
   // The server serves the landing page for these paths. Reaching this file
   // here means a (stale) service worker intercepted the navigation and served
