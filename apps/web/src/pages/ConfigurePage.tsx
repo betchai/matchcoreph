@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Check, CheckCircle2, ChevronRight, Circle, Rocket, UserPlus } from 'lucide-react';
+import { Check, CheckCircle2, ChevronRight, Circle, Download, Rocket, UserPlus } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useOrgPerm } from '../store/auth.js';
 import { Badge, Button, Card, ComboBox, Empty, ErrorBanner, Field, Input, Notice, PageHeader, Select, Spinner, Table, Td, Th } from '../components/ui.js';
@@ -34,7 +34,7 @@ type Division = { id: string; code: string; name: string; discipline: string; ma
 type Category = { id: string; code: string; name: string };
 type SquadRow = { id: string; name: string; memberCount: number; stageNumber: number | null };
 type StageRow = { id: string; number: number; name: string };
-type RegistrationRow = { id: string; shooterId: string; firstName: string; lastName: string; divisionId: string | null; divisionName: string | null; categoryId: string | null; declaredPowerFactor: string; squadId: string | null; squadName: string | null; status: string; hasScorePin?: boolean; paid: boolean };
+type RegistrationRow = { id: string; shooterId: string; firstName: string; lastName: string; divisionId: string | null; divisionName: string | null; categoryId: string | null; declaredPowerFactor: string; squadId: string | null; squadName: string | null; status: string; hasScorePin?: boolean; paid: boolean; paymentMode: string | null };
 type ShooterRow = { id: string; shooterNumber: string; firstName: string; lastName: string; nickname: string | null; homeClub: string | null };
 
 const DISCIPLINE_LABELS: Record<string, string> = {
@@ -170,7 +170,7 @@ export default function ConfigurePage() {
           {step === 'ruleset' && <RulesetForm view={view} orgId={orgId} matchId={matchId} canEdit={canEdit} onSaved={reloadView} setError={setError} setNotice={setNotice} />}
           {step === 'divisions' && <DivisionsForm view={view} orgId={orgId} matchId={matchId} canEdit={canEdit} onSaved={reloadView} setError={setError} setNotice={setNotice} />}
           {step === 'squads' && <SquadsForm orgId={orgId} matchId={matchId} canEdit={canEdit} onSaved={reloadView} setError={setError} setNotice={setNotice} />}
-          {step === 'registrations' && <RegistrationsForm orgId={orgId} matchId={matchId} divisions={view.divisions} categories={view.categories} canRegister={canRegister} onSaved={reloadView} setError={setError} setNotice={setNotice} />}
+          {step === 'registrations' && <RegistrationsForm orgId={orgId} matchId={matchId} matchName={view.name} registrationFee={view.registrationFee} divisions={view.divisions} categories={view.categories} canRegister={canRegister} onSaved={reloadView} setError={setError} setNotice={setNotice} />}
           {step === 'publish' && <PublishForm view={view} orgId={orgId} matchId={matchId} wizard={wizard} completedCount={completedCount} canEdit={canEdit} onSaved={reloadView} setError={setError} setNotice={setNotice} />}
         </div>
       </div>
@@ -673,9 +673,11 @@ function SquadsForm({ orgId, matchId, canEdit, onSaved, setError, setNotice }: {
   );
 }
 
-function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister, onSaved, setError, setNotice }: {
+function RegistrationsForm({ orgId, matchId, matchName, registrationFee, divisions, categories, canRegister, onSaved, setError, setNotice }: {
   orgId: string;
   matchId: string;
+  matchName: string;
+  registrationFee: number;
   divisions: { id: string; code: string; name: string }[];
   categories: { id: string; code: string; name: string }[];
   canRegister: boolean;
@@ -693,9 +695,17 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
   const [squadId, setSquadId] = useState('');
   const [pf, setPf] = useState('MINOR');
   const [pin, setPin] = useState('0000');
-  const [paid, setPaid] = useState(false);
+  const [payment, setPayment] = useState('');
   const [busy, setBusy] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+
+  const PAYMENT_OPTIONS = [
+    { value: '', label: 'Unpaid' },
+    { value: 'CASH', label: 'Cash' },
+    { value: 'GCASH', label: 'GCash' },
+    { value: 'SPLIT', label: 'Split (cash + GCash)' },
+    { value: 'OTHER', label: 'Other' },
+  ];
 
   const load = () => {
     setError('');
@@ -728,7 +738,7 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
     try {
       await api(`/api/orgs/${orgId}/matches/${matchId}/registrations`, {
         method: 'POST',
-        json: { shooterId, divisionId: divisionId || null, categoryId: categoryId || null, declaredPowerFactor: pf, squadId: squadId || null, scorePin: pin, paid },
+        json: { shooterId, divisionId: divisionId || null, categoryId: categoryId || null, declaredPowerFactor: pf, squadId: squadId || null, scorePin: pin, paid: payment !== '', paymentMode: payment || null },
       });
       setShooterId('');
       setSearch('');
@@ -736,7 +746,7 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
       setCategoryId('');
       setSquadId('');
       setPin('0000');
-      setPaid(false);
+      setPayment('');
       setFormOpen(false);
       load();
       onSaved();
@@ -758,16 +768,48 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
     }
   }
 
+  async function exportCsv() {
+    setError('');
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/orgs/${orgId}/matches/${matchId}/registrations/export`);
+      if (!res.ok) throw new Error('Could not export registrations.');
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') ?? '';
+      const file = disposition.match(/filename="([^"]+)"/)?.[1] ?? `${matchName || 'match'}-registrations.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setNotice('Registrations exported.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not export registrations');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (rows === null) return <Spinner />;
   return (
     <FieldBlock title={`Competitors (${rows.length})`}>
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs text-muted">Register shooters from your club roster, then check them in on match day.</p>
-        {canRegister && (
-          <Button kind="gold" onClick={() => setFormOpen(!formOpen)}>
-            <UserPlus className="h-4 w-4" /> Register
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {rows.length > 0 && (
+            <Button kind="ghost" onClick={() => void exportCsv()} disabled={busy}>
+              <Download className="h-4 w-4" /> Export CSV
+            </Button>
+          )}
+          {canRegister && (
+            <Button kind="gold" onClick={() => setFormOpen(!formOpen)}>
+              <UserPlus className="h-4 w-4" /> Register
+            </Button>
+          )}
+        </div>
       </div>
 
       {formOpen && (
@@ -819,11 +861,10 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
                 maxLength={4}
               />
             </Field>
-            <Field label="Payment">
-              <label className="flex items-center gap-2 text-sm text-ink">
-                <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
-                Paid registration fee
-              </label>
+            <Field label="Payment" hint={registrationFee > 0 ? `Fee: ₱${registrationFee.toLocaleString()}` : 'No registration fee set'}>
+              <Select value={payment} onChange={(e) => setPayment(e.target.value)}>
+                {PAYMENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </Select>
             </Field>
           </div>
           <div className="mt-3 flex gap-2">
@@ -925,26 +966,42 @@ function RegistrationsForm({ orgId, matchId, divisions, categories, canRegister,
                     )}
                   </Td>
                   <Td>
-                    {canRegister ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void api(`/api/orgs/${orgId}/matches/${matchId}/registrations/${r.id}`, { method: 'PATCH', json: { paid: !r.paid } })
-                            .then(load)
-                            .catch((err) => setError(err instanceof Error ? err.message : 'Could not update payment'));
-                        }}
-                        className={r.paid
-                          ? 'inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 transition hover:bg-emerald-500/20'
-                          : 'text-[10px] text-muted transition hover:text-ink'}
-                        title={r.paid ? 'Click to mark unpaid' : 'Click to mark paid'}
-                      >
-                        {r.paid ? <><Check className="h-3 w-3" /> Paid</> : 'Mark paid'}
-                      </button>
-                    ) : r.paid ? (
-                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600"><Check className="h-3 w-3" /> Paid</span>
-                    ) : (
-                      <span className="text-[10px] text-muted">—</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {canRegister ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void api(`/api/orgs/${orgId}/matches/${matchId}/registrations/${r.id}`, { method: 'PATCH', json: { paid: !r.paid } })
+                              .then(load)
+                              .catch((err) => setError(err instanceof Error ? err.message : 'Could not update payment'));
+                          }}
+                          className={r.paid
+                            ? 'inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 transition hover:bg-emerald-500/20'
+                            : 'text-[10px] text-muted transition hover:text-ink'}
+                          title={r.paid ? 'Click to mark unpaid' : 'Click to mark paid'}
+                        >
+                          {r.paid ? <><Check className="h-3 w-3" /> Paid</> : 'Mark paid'}
+                        </button>
+                      ) : r.paid ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600"><Check className="h-3 w-3" /> Paid</span>
+                      ) : null}
+                      {r.paid && canRegister ? (
+                        <Select
+                          className="w-28 px-2 py-1 text-xs"
+                          value={r.paymentMode ?? ''}
+                          onChange={(e) => {
+                            void api(`/api/orgs/${orgId}/matches/${matchId}/registrations/${r.id}`, { method: 'PATCH', json: { paymentMode: e.target.value || null } })
+                              .then(load)
+                              .catch((err) => setError(err instanceof Error ? err.message : 'Could not update payment mode'));
+                          }}
+                        >
+                          <option value="">—</option>
+                          {PAYMENT_OPTIONS.filter((o) => o.value !== '').map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </Select>
+                      ) : r.paid ? (
+                        <span className="text-[10px] text-muted">{PAYMENT_OPTIONS.find((o) => o.value === r.paymentMode)?.label ?? '—'}</span>
+                      ) : null}
+                    </div>
                   </Td>
                 </tr>
               ))}

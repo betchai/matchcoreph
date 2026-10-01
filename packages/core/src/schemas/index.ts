@@ -5,6 +5,7 @@ import {
   LOAD_TYPES,
   MATCH_LEVELS,
   MATCH_TYPES,
+  PAYMENT_MODES,
   POWER_FACTORS,
   SANCTIONING_STATUSES,
   SCORING_METHODS,
@@ -157,6 +158,7 @@ export const registrationSchema = z.object({
   status: z.enum(COMPETITOR_STATUSES).default('REGISTERED'),
   scorePin: z.string().regex(/^\d{4}$/, 'PIN must be exactly 4 digits').optional(),
   paid: z.boolean().optional(),
+  paymentMode: z.enum(PAYMENT_MODES).nullable().optional(),
 });
 
 export const registrationsBulkSchema = z.object({

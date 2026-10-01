@@ -30,6 +30,7 @@ import {
   listAttendance,
   listRegistrations,
   registerCompetitor,
+  registrationsCsv,
   setRegistrationStatus,
   updateRegistration,
 } from '../services/registrations.js';
@@ -286,6 +287,17 @@ export function orgRoutes(app: FastifyInstance): void {
     });
   });
 
+  app.get('/api/orgs/:orgId/matches/:matchId/registrations/export', async (req, reply) => {
+    const { orgId } = orgScope(req, param(req, 'orgId'), 'match.view');
+    const m = loadMatch(req, orgId, param(req, 'matchId'));
+    const { filename, csv } = registrationsCsv(req.db, m);
+    return reply
+      .type('text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .header('Cache-Control', 'no-store')
+      .send(csv);
+  });
+
   app.get('/api/orgs/:orgId/matches/:matchId/registrations/:registrationId', async (req) => {
     const { orgId } = orgScope(req, param(req, 'orgId'), 'match.view');
     const m = loadMatch(req, orgId, param(req, 'matchId'));
@@ -305,6 +317,7 @@ export function orgRoutes(app: FastifyInstance): void {
       matchNumber: input.matchNumber as never,
       scorePin: input.scorePin as never,
       paid: input.paid as never,
+      paymentMode: input.paymentMode as never,
     }, { userId: ctx.user.id, username: ctx.user.username });
   });
 

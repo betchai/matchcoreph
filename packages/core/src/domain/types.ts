@@ -10,6 +10,7 @@ import type {
   MatchStatus,
   MatchType,
   OrganizationStatus,
+  PaymentMode,
   PenaltyType,
   PowerFactor,
   ResultVisibility,
@@ -248,6 +249,8 @@ export interface MatchRegistration {
   hasScorePin?: boolean;
   /** True when the shooter has paid the match registration fee. */
   paid: boolean;
+  /** How the registration fee was paid (CASH / GCASH / SPLIT / OTHER). */
+  paymentMode?: PaymentMode | null;
 }
 
 export interface ScorePenaltyEvent {

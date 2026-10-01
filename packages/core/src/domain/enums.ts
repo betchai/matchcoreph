@@ -57,6 +57,15 @@ export type SyncStatus = (typeof SYNC_STATUSES)[number];
 export const POWER_FACTORS = ['MINOR', 'MAJOR', 'NOT_APPLICABLE'] as const;
 export type PowerFactor = (typeof POWER_FACTORS)[number];
 
+export const PAYMENT_MODES = ['CASH', 'GCASH', 'SPLIT', 'OTHER'] as const;
+export type PaymentMode = (typeof PAYMENT_MODES)[number];
+export const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
+  CASH: 'Cash',
+  GCASH: 'GCash',
+  SPLIT: 'Split (cash + GCash)',
+  OTHER: 'Other',
+};
+
 export const SCORING_ZONES = ['A', 'C', 'D'] as const;
 export type ScoringZone = (typeof SCORING_ZONES)[number];
 

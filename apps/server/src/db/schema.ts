@@ -301,6 +301,7 @@ export const DDL: string[] = [
     notes TEXT,
     score_pin_hash TEXT,
     paid INTEGER NOT NULL DEFAULT 0,
+    payment_mode TEXT,
     registered_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE (match_id, shooter_id)

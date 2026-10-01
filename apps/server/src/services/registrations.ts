@@ -4,7 +4,7 @@ import { audit } from './audit.js';
 import { divisionById, categoryById } from './rulesets.js';
 import { shooterById } from './shooters.js';
 import { hashPassword } from './password.js';
-import type { CompetitorStatus, Match, MatchRegistration } from '@blinkscore/core';
+import type { CompetitorStatus, Match, MatchRegistration, PaymentMode } from '@blinkscore/core';
 import { COMPETITOR_STATUSES } from '@blinkscore/core';
 
 export function mapRegistration(row: Record<string, unknown>): MatchRegistration {
@@ -25,6 +25,7 @@ export function mapRegistration(row: Record<string, unknown>): MatchRegistration
     updatedAt: String(row.updated_at),
     hasScorePin: Boolean(row.score_pin_hash),
     paid: Boolean(row.paid),
+    paymentMode: (row.payment_mode as PaymentMode | null) ?? null,
   };
 }
 
@@ -48,6 +49,7 @@ export function registerCompetitor(
     matchNumber?: string | null;
     scorePin?: string | null;
     paid?: boolean;
+    paymentMode?: string | null;
   },
   actor: { userId: string; username: string | null },
 ): MatchRegistration {
@@ -85,10 +87,11 @@ export function registerCompetitor(
   const id = uuid();
   const now = new Date().toISOString();
   const pinHash = hashPassword(input.scorePin ?? '0000');
+  const paymentMode = input.paid ? (input.paymentMode ?? 'CASH') : (input.paymentMode ?? null);
   db.prepare(
     `INSERT INTO match_registrations
-      (id, match_id, organization_id, shooter_id, shooter_number, division_id, category_id, declared_power_factor, squad_id, status, match_number, notes, score_pin_hash, paid, registered_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'REGISTERED', ?, NULL, ?, ?, ?, ?)`,
+      (id, match_id, organization_id, shooter_id, shooter_number, division_id, category_id, declared_power_factor, squad_id, status, match_number, notes, score_pin_hash, paid, payment_mode, registered_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'REGISTERED', ?, NULL, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     match.id,
@@ -102,6 +105,7 @@ export function registerCompetitor(
     input.matchNumber ?? null,
     pinHash,
     input.paid ? 1 : 0,
+    paymentMode,
     now,
     now,
   );
@@ -178,6 +182,7 @@ export function listRegistrations(
     matchNumber: (r.match_number as string) ?? null,
     hasScorePin: Boolean(r.score_pin_hash),
     paid: Boolean(r.paid),
+    paymentMode: (r.payment_mode as PaymentMode | null) ?? null,
     registeredAt: String(r.registered_at),
   }));
 }
@@ -186,7 +191,7 @@ export function updateRegistration(
   db: Db,
   match: Match,
   registration: MatchRegistration,
-  patch: { divisionId?: string | null; categoryId?: string | null; declaredPowerFactor?: string; squadId?: string | null; matchNumber?: string | null; notes?: string | null; scorePin?: string | null; paid?: boolean },
+  patch: { divisionId?: string | null; categoryId?: string | null; declaredPowerFactor?: string; squadId?: string | null; matchNumber?: string | null; notes?: string | null; scorePin?: string | null; paid?: boolean; paymentMode?: string | null },
   actor: { userId: string; username: string | null },
 ): MatchRegistration {
   if (patch.divisionId && patch.divisionId !== registration.divisionId) {
@@ -217,8 +222,18 @@ export function updateRegistration(
     }
   }
   const now = new Date().toISOString();
+  let paymentMode: PaymentMode | null;
+  if (patch.paymentMode !== undefined) {
+    paymentMode = (patch.paymentMode as PaymentMode | null) ?? null;
+  } else if (patch.paid === true) {
+    paymentMode = registration.paymentMode ?? 'CASH';
+  } else if (patch.paid === false) {
+    paymentMode = null;
+  } else {
+    paymentMode = registration.paymentMode ?? null;
+  }
   db.prepare(
-    `UPDATE match_registrations SET division_id=?, category_id=?, declared_power_factor=?, squad_id=?, match_number=?, notes=?, score_pin_hash=?, paid=?, status=?, updated_at=? WHERE id=?`,
+    `UPDATE match_registrations SET division_id=?, category_id=?, declared_power_factor=?, squad_id=?, match_number=?, notes=?, score_pin_hash=?, paid=?, payment_mode=?, status=?, updated_at=? WHERE id=?`,
   ).run(
     patch.divisionId === undefined ? registration.divisionId : patch.divisionId,
     patch.categoryId === undefined ? registration.categoryId : patch.categoryId,
@@ -228,6 +243,7 @@ export function updateRegistration(
     patch.notes === undefined ? registration.notes : patch.notes,
     pinHash,
     patch.paid === undefined ? (registration.paid ? 1 : 0) : patch.paid ? 1 : 0,
+    paymentMode,
     registration.status,
     now,
     registration.id,
@@ -365,4 +381,72 @@ export function listAttendance(db: Db, match: Match): Record<string, unknown>[] 
     checkedInAt: String(r.checked_in_at),
     checkedInBy: String(r.checked_in_by),
   }));
+}
+
+/** Builds a spreadsheet-friendly CSV of all registered shooters for a match. */
+export function registrationsCsv(db: Db, match: Match): { filename: string; csv: string } {
+  const rows = db
+    .prepare(
+      `SELECT r.shooter_number, r.match_number, r.status, r.paid, r.payment_mode, r.score_pin_hash, r.registered_at,
+              s.first_name, s.last_name, s.nickname, s.gender, s.home_club, s.ppsa_membership_number,
+              r.declared_power_factor, d.name AS division_name, c.name AS category_name, sq.name AS squad_name
+       FROM match_registrations r
+       JOIN shooters s ON s.id = r.shooter_id
+       LEFT JOIN divisions d ON d.id = r.division_id
+       LEFT JOIN categories c ON c.id = r.category_id
+       LEFT JOIN squads sq ON sq.id = r.squad_id
+       WHERE r.match_id = ?
+       ORDER BY s.last_name, s.first_name`,
+    )
+    .all(match.id) as Record<string, unknown>[];
+  const esc = (v: unknown): string => `"${(v === null || v === undefined ? '' : String(v)).replace(/"/g, '""')}"`;
+  const header = [
+    'No.',
+    'Shooter #',
+    'PPSA #',
+    'Last Name',
+    'First Name',
+    'Nickname',
+    'Gender',
+    'Club',
+    'Division',
+    'Category',
+    'Power Factor',
+    'Squad',
+    'Match Order',
+    'Status',
+    'PIN Set',
+    'Paid',
+    'Payment Mode',
+    'Registered At',
+  ];
+  const lines = [header.map(esc).join(',')];
+  rows.forEach((r, i) => {
+    lines.push(
+      [
+        i + 1,
+        r.shooter_number,
+        r.ppsa_membership_number,
+        r.last_name,
+        r.first_name,
+        r.nickname,
+        r.gender,
+        r.home_club,
+        r.division_name,
+        r.category_name,
+        r.declared_power_factor,
+        r.squad_name,
+        r.match_number,
+        r.status,
+        Boolean(r.score_pin_hash) ? 'YES' : 'NO',
+        Boolean(r.paid) ? 'YES' : 'NO',
+        (r.payment_mode as string) ?? '',
+        r.registered_at,
+      ]
+        .map(esc)
+        .join(','),
+    );
+  });
+  const slug = match.name.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'match';
+  return { filename: `${slug}-registrations.csv`, csv: `\ufeff${lines.join('\r\n')}\r\n` };
 }
