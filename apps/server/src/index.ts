@@ -26,7 +26,11 @@ export function buildApp(db: Db, opts: { webDist?: string } = {}): import('fasti
 
   app.register(cookie);
   app.register(cors, { origin: true, credentials: true });
-  app.register(rateLimit, { max: 600, timeWindow: '1 minute' });
+  app.register(rateLimit, {
+    max: 600,
+    timeWindow: '1 minute',
+    allowList: (req) => !(req.url ?? '').startsWith('/api/'),
+  });
 
   if (hasWeb) {
     app.register(fastifyStatic, { root: webDist, wildcard: true, index: [] });
