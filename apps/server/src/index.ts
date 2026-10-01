@@ -29,7 +29,7 @@ export function buildApp(db: Db, opts: { webDist?: string } = {}): import('fasti
   app.register(rateLimit, { max: 600, timeWindow: '1 minute' });
 
   if (hasWeb) {
-    app.register(fastifyStatic, { root: webDist, wildcard: false, index: [] });
+    app.register(fastifyStatic, { root: webDist, wildcard: true, index: [] });
   }
 
   app.addHook('onRequest', async (req) => {
@@ -68,13 +68,18 @@ export function buildApp(db: Db, opts: { webDist?: string } = {}): import('fasti
 
   app.setNotFoundHandler((req, reply) => {
     const indexHtml = path.join(webDist, 'index.html');
-    if (req.method === 'GET' && !req.url.startsWith('/api/') && existsSync(indexHtml)) {
+    const url = req.url ?? '';
+    const pathname = url.split('?')[0] ?? '';
+    const isFileRequest = /\.(js|mjs|cjs|css|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|json|map|txt|webmanifest)$/i.test(
+      pathname,
+    );
+    if (req.method === 'GET' && !url.startsWith('/api/') && !isFileRequest && existsSync(indexHtml)) {
       return reply
         .type('text/html; charset=utf-8')
         .header('Cache-Control', 'no-cache')
         .send(readFileSync(indexHtml));
     }
-    return reply.status(404).send({ error: 'NOT_FOUND', message: `Route ${req.method} ${req.url} not found.` });
+    return reply.status(404).send({ error: 'NOT_FOUND', message: `Route ${req.method} ${url} not found.` });
   });
 
   return app;
