@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App.js';
+import { installDemoLogin } from './lib/demo.js';
+
+installDemoLogin();
 
 const path = window.location.pathname;
 const LANDING_ONCE = 'landing-redirect-done';

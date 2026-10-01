@@ -1,10 +1,11 @@
 import { Component, useEffect, type ReactNode } from 'react';
-import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from './store/auth.js';
 import { Spinner } from './components/ui.js';
 import Shell from './components/Shell.js';
 import LoginPage from './pages/LoginPage.js';
+import LandingPage from './pages/LandingPage.js';
 import OrgsPage from './pages/OrgsPage.js';
 import MatchesPage from './pages/MatchesPage.js';
 import MatchPage from './pages/MatchPage.js';
@@ -59,13 +60,15 @@ function NotFound() {
 export default function App() {
   const { ready, user, restore } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isPublicLanding = location.pathname === '/landing';
 
   useEffect(() => {
-    if (ready) return;
+    if (ready || isPublicLanding) return;
     void restore().then((ok) => { if (!ok) navigate('/login'); });
-  }, [ready, restore, navigate]);
+  }, [ready, restore, navigate, isPublicLanding]);
 
-  if (!ready) {
+  if (!ready && !isPublicLanding) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app">
         <Spinner />
@@ -77,6 +80,7 @@ export default function App() {
     <ErrorBoundary>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/landing" element={<LandingPage />} />
         <Route element={user ? null : <Navigate to="/login" replace />}>
           <Route path="/dashboard" element={<Shell title="Dashboard"><OrgsPage /></Shell>} />
           <Route path="/platform/shooters" element={<Shell title="Shooters"><ShootersPage /></Shell>} />
