@@ -77,7 +77,7 @@ export default function Shell({ title, children }: { title: string; children: Re
     {
       label: 'Platform',
       items: [
-        { label: 'Dashboard', to: '/', icon: <LayoutGrid className="h-4 w-4" />, exact: true, mobile: true },
+        { label: 'Dashboard', to: '/dashboard', icon: <LayoutGrid className="h-4 w-4" />, exact: true, mobile: true },
         ...(isPlatformAdmin
           ? [
               { label: 'Shooters', to: '/platform/shooters', icon: <UserRound className="h-4 w-4" />, mobile: true },
@@ -101,7 +101,7 @@ export default function Shell({ title, children }: { title: string; children: Re
   return (
     <div className="min-h-screen bg-app">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col bg-navy px-4 py-5 text-ink lg:flex">
-        <a href="/landing" className="flex items-center gap-3 border-b border-white/10 px-1 pb-5">
+        <a href="/" className="flex items-center gap-3 border-b border-white/10 px-1 pb-5">
           <img src="/ico.png" alt="MatchCorePH logo" className="h-10 w-10 rounded-xl object-cover" />
           <span>
             <b className="block text-[15px] leading-tight">MatchCore<span className="text-[#ff7ab0]">PH</span></b>

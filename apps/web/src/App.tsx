@@ -51,7 +51,7 @@ function NotFound() {
     <div className="flex flex-col items-center gap-3 py-20 text-center">
       <p className="text-4xl font-extrabold text-ink">404</p>
       <p className="text-sm text-muted">That page doesn't exist.</p>
-      <Link to="/" className="mt-2 text-sm font-semibold text-brand hover:underline">Back to organizations</Link>
+      <Link to="/dashboard" className="mt-2 text-sm font-semibold text-brand hover:underline">Back to organizations</Link>
     </div>
   );
 }
@@ -78,7 +78,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={user ? null : <Navigate to="/login" replace />}>
-          <Route path="/" element={<Shell title="Dashboard"><OrgsPage /></Shell>} />
+          <Route path="/dashboard" element={<Shell title="Dashboard"><OrgsPage /></Shell>} />
           <Route path="/platform/shooters" element={<Shell title="Shooters"><ShootersPage /></Shell>} />
           <Route path="/platform/audit" element={<Shell title="Audit log"><AuditPage /></Shell>} />
           <Route path="/orgs/:orgId" element={<Shell title="Matches"><MatchesPage /></Shell>} />

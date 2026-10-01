@@ -35,7 +35,7 @@ export default function LoginPage() {
   const newPasswordRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (ready && user && stage === 'login') navigate('/', { replace: true });
+    if (ready && user && stage === 'login') navigate('/dashboard', { replace: true });
   }, [ready, user, stage, navigate]);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function LoginPage() {
       </div>
     );
   }
-  if (user && stage === 'login') return <Navigate to="/" replace />;
+  if (user && stage === 'login') return <Navigate to="/dashboard" replace />;
 
   async function submitLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -67,7 +67,7 @@ export default function LoginPage() {
         setStage('change');
         setNotice(`Welcome${me.displayName ? `, ${me.displayName}` : ''}. Set a new password to continue.`);
       } else {
-        navigate('/', { replace: true });
+navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
@@ -90,7 +90,7 @@ export default function LoginPage() {
     try {
       await api('/api/auth/password', { method: 'POST', json: { currentPassword: password, newPassword } });
       if (user) setUser({ ...user, mustChangePassword: false });
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Could not update your password.');
     } finally {
@@ -122,7 +122,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-app px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-7 flex flex-col items-center text-center">
-          <a href="/landing" className="flex items-center gap-2.5">
+          <a href="/" className="flex items-center gap-2.5">
             <img src="/ico.png" alt="MatchCorePH logo" className="h-12 w-12 rounded-2xl object-cover shadow-card" />
             <span className="text-xl font-black tracking-tight text-ink">MatchCore<span className="text-[#ff7ab0]">PH</span></span>
           </a>
